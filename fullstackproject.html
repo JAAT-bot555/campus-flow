@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusFlow - Student Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons (Alternative to Lucide for standard HTML) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col md:flex-row text-slate-800">
+
+    <!-- SIDEBAR -->
+    <aside class="w-full md:w-72 bg-slate-900 text-white flex flex-col shrink-0 min-h-[auto] md:min-h-screen sticky top-0 z-20">
+        <div class="p-6">
+            <div class="flex items-center gap-3 text-white font-bold text-2xl mb-2">
+                <div class="bg-indigo-500 p-2 rounded-xl">
+                    <i class="ph ph-graduation-cap text-2xl text-white"></i>
+                </div>
+                CampusFlow
+            </div>
+            <p class="text-slate-400 text-sm font-medium px-1 mb-8">Student ERP Portal</p>
+            
+            <nav class="space-y-2" id="sidebar-nav">
+                <button onclick="window.switchTab('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all bg-indigo-600 text-white shadow-md" data-tab="dashboard">
+                    <i class="ph ph-squares-four text-xl"></i><span class="font-medium">Dashboard</span>
+                </button>
+                <button onclick="window.switchTab('attendance')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-800 hover:text-white" data-tab="attendance">
+                    <i class="ph ph-calendar-check text-xl"></i><span class="font-medium">Attendance</span>
+                </button>
+                <button onclick="window.switchTab('tasks')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-800 hover:text-white" data-tab="tasks">
+                    <i class="ph ph-clipboard-text text-xl"></i><span class="font-medium">Tasks & Quizzes</span>
+                </button>
+                <button onclick="window.switchTab('materials')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-800 hover:text-white" data-tab="materials">
+                    <i class="ph ph-books text-xl"></i><span class="font-medium">Study Material</span>
+                </button>
+                <button onclick="window.switchTab('cgpa')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-800 hover:text-white" data-tab="cgpa">
+                    <i class="ph ph-calculator text-xl"></i><span class="font-medium">Grades & CGPA</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="mt-auto p-6 hidden md:block">
+            <div class="bg-slate-800 rounded-xl p-4 flex items-center gap-3 border border-slate-700">
+                <i id="sync-icon" class="ph-fill ph-check-circle text-xl text-green-400"></i>
+                <div class="text-sm">
+                    <p id="sync-text" class="font-medium text-slate-200">All changes saved</p>
+                    <p class="text-xs text-slate-400">Local Storage Active</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-auto h-screen relative">
+        <!-- HEADER -->
+        <header class="bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-200 px-8 py-5 flex justify-between items-center">
+            <div>
+                <h1 id="header-title" class="text-2xl font-bold text-slate-800 capitalize">Dashboard</h1>
+                <p class="text-sm text-slate-500 font-medium">B.Tech • 2nd Year • Semester 4</p>
+            </div>
+            <div class="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold border-2 border-white shadow-sm">
+                JD
+            </div>
+        </header>
+
+        <!-- DYNAMIC CONTENT AREA -->
+        <div id="tab-content" class="p-8 max-w-6xl mx-auto pb-24">
+            <!-- Rendered by JS -->
+        </div>
+    </main>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- 1. DATA AND STATE ---
+        const gradePoints = { 'O': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C': 5, 'U': 0 };
+        let activeTab = 'dashboard';
+        
+        const defaultData = {
+            courses: [
+                { id: '1', code: 'CS201', name: 'Data Structures & Algorithms', credits: 4, classesTotal: 40, classesAttended: 32, grade: 'A' },
+                { id: '2', code: 'CS203', name: 'Computer Organization', credits: 3, classesTotal: 35, classesAttended: 24, grade: 'B+' },
+                { id: '3', code: 'MA201', name: 'Discrete Mathematics', credits: 4, classesTotal: 30, classesAttended: 28, grade: 'O' },
+                { id: '4', code: 'HS201', name: 'Technical Communication', credits: 2, classesTotal: 20, classesAttended: 12, grade: 'B' },
+            ],
+            assignments: [
+                { id: '1', courseCode: 'CS201', title: 'Implement AVL Tree', type: 'assignment', dueDate: new Date(Date.now() + 86400000 * 2).toISOString(), status: 'pending' },
+                { id: '2', courseCode: 'CS203', title: 'MIPS Assembly Lab', type: 'assignment', dueDate: new Date(Date.now() + 86400000 * 5).toISOString(), status: 'pending' },
+                { id: '3', courseCode: 'MA201', title: 'Graph Theory Quiz', type: 'quiz', dueDate: new Date(Date.now() + 86400000 * 1).toISOString(), status: 'pending' },
+            ],
+            materials: [
+                { id: 'm1', courseCode: 'CS201', title: 'Unit 1: Trees and Graphs Notes', type: 'pdf', uploadDate: 'Oct 15' },
+                { id: 'm2', courseCode: 'CS201', title: 'AVL Tree Visualization', type: 'video', uploadDate: 'Oct 18' },
+                { id: 'm3', courseCode: 'CS203', title: 'MIPS Instruction Set Manual', type: 'pdf', uploadDate: 'Oct 10' },
+                { id: 'm4', courseCode: 'MA201', title: 'Discrete Math Question Bank', type: 'pdf', uploadDate: 'Oct 20' },
+                { id: 'm5', courseCode: 'HS201', title: 'Business Email Templates', type: 'link', uploadDate: 'Oct 22' }
+            ]
+        };
+
+        let appData = {};
+
+        // Load Data from LocalStorage
+        function initApp() {
+            const stored = localStorage.getItem('campusFlowDB');
+            if (stored) {
+                // Merge with default to ensure no missing fields
+                appData = { ...defaultData, ...JSON.parse(stored) };
+            } else {
+                appData = JSON.parse(JSON.stringify(defaultData));
+            }
+            renderApp();
+        }
+
+        // Save Data to LocalStorage
+        function saveData() {
+            localStorage.setItem('campusFlowDB', JSON.stringify(appData));
+            
+            // Visual Sync Indicator
+            const icon = document.getElementById('sync-icon');
+            const text = document.getElementById('sync-text');
+            if(icon && text) {
+                icon.className = "ph-fill ph-spinner-gap animate-spin text-xl text-amber-400";
+                text.innerText = "Syncing...";
+                
+                setTimeout(() => {
+                    icon.className = "ph-fill ph-check-circle text-xl text-green-400";
+                    text.innerText = "All changes saved";
+                }, 500);
+            }
+            renderApp(); // Re-render UI after data changes
+        }
+
+        // --- 2. LOGIC FUNCTIONS ---
+        function calculateOverallAttendance() {
+            if (appData.courses.length === 0) return 0;
+            const total = appData.courses.reduce((sum, c) => sum + c.classesTotal, 0);
+            const attended = appData.courses.reduce((sum, c) => sum + c.classesAttended, 0);
+            return total === 0 ? 0 : Math.round((attended / total) * 100);
+        }
+
+        function calculateSGPA() {
+            let totalCredits = 0;
+            let earnedPoints = 0;
+            appData.courses.forEach(c => {
+                if (gradePoints[c.grade] !== undefined) {
+                    totalCredits += c.credits;
+                    earnedPoints += (c.credits * gradePoints[c.grade]);
+                }
+            });
+            return totalCredits === 0 ? 0 : (earnedPoints / totalCredits).toFixed(2);
+        }
+
+        // Exposed to Window for onclick events in HTML
+        window.switchTab = (tab) => {
+            activeTab = tab;
+            // Update Sidebar UI
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if(btn.dataset.tab === tab) {
+                    btn.className = "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all bg-indigo-600 text-white shadow-md";
+                } else {
+                    btn.className = "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-800 hover:text-white";
+                }
+            });
+            document.getElementById('header-title').innerText = tab.replace('-', ' ');
+            renderApp();
+        };
+
+        window.markAttendance = (courseId, present) => {
+            const course = appData.courses.find(c => c.id === courseId);
+            if (course) {
+                course.classesTotal += 1;
+                if (present) course.classesAttended += 1;
+                saveData();
+            }
+        };
+
+        window.toggleTask = (taskId) => {
+            const task = appData.assignments.find(a => a.id === taskId);
+            if (task) {
+                task.status = task.status === 'pending' ? 'completed' : 'pending';
+                saveData();
+            }
+        };
+
+        window.changeGrade = (courseId, newGrade) => {
+            const course = appData.courses.find(c => c.id === courseId);
+            if (course) {
+                course.grade = newGrade;
+                saveData();
+            }
+        };
+
+        // --- 3. RENDER FUNCTIONS (HTML Templates) ---
+        
+        function renderAttendanceBarHTML(attended, total) {
+            const percentage = total === 0 ? 0 : Math.round((attended / total) * 100);
+            let colorClass = 'bg-green-500';
+            if (percentage < 75) colorClass = 'bg-red-500';
+            else if (percentage < 80) colorClass = 'bg-yellow-400';
+
+            return `
+                <div class="mt-2">
+                    <div class="flex justify-between text-xs mb-1 font-medium text-slate-500">
+                        <span>${percentage}%</span>
+                        <span>${attended}/${total} Classes</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div class="${colorClass} h-2.5 rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDashboard() {
+            const sgpa = calculateSGPA();
+            const attendance = calculateOverallAttendance();
+            const pendingTasks = appData.assignments.filter(a => a.status === 'pending').length;
+
+            let quickAttendanceHTML = appData.courses.map(course => {
+                const perc = course.classesTotal === 0 ? 0 : Math.round((course.classesAttended / course.classesTotal) * 100);
+                const percClass = perc < 75 ? 'text-red-500' : 'text-slate-500';
+                return `
+                    <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors">
+                        <div class="flex-1">
+                            <p class="font-semibold text-slate-800 text-sm">${course.name}</p>
+                            <p class="text-xs font-medium ${percClass}">${perc}% (${course.classesAttended}/${course.classesTotal})</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="window.markAttendance('${course.id}', true)" class="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors" title="Mark Present">
+                                <i class="ph ph-check text-lg"></i>
+                            </button>
+                            <button onclick="window.markAttendance('${course.id}', false)" class="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Mark Absent">
+                                <i class="ph ph-x text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            let upcomingTasksHTML = appData.assignments.length === 0 ? `<p class="text-slate-500 text-sm text-center py-4">No assignments tracked yet.</p>` : '';
+            appData.assignments.forEach(task => {
+                const daysLeft = Math.ceil((new Date(task.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+                const bgClass = task.status === 'completed' ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200';
+                const checkClass = task.status === 'completed' ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300';
+                const textClass = task.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-800';
+                const timeText = task.status === 'completed' ? 'Done' : (daysLeft < 0 ? 'Overdue' : `${daysLeft} days left`);
+                const timeColor = (daysLeft < 2 && task.status !== 'completed') ? 'text-red-500 font-medium' : 'text-slate-500';
+
+                upcomingTasksHTML += `
+                    <div class="flex items-start gap-3 p-3 rounded-xl border ${bgClass} transition-all">
+                        <button onclick="window.toggleTask('${task.id}')" class="mt-1 flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center ${checkClass}">
+                            ${task.status === 'completed' ? '<i class="ph ph-check text-xs"></i>' : ''}
+                        </button>
+                        <div>
+                            <p class="text-sm font-semibold ${textClass}">${task.title}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-medium">${task.courseCode}</span>
+                                <span class="text-xs flex items-center gap-1 ${timeColor}">
+                                    <i class="ph ph-clock"></i> ${timeText}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            return `
+                <div class="space-y-6 fade-in">
+                    <!-- Top Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div class="p-4 bg-indigo-50 text-indigo-600 rounded-xl"><i class="ph ph-graduation-cap text-3xl"></i></div>
+                            <div>
+                                <p class="text-sm font-medium text-slate-500">Current SGPA</p>
+                                <h2 class="text-3xl font-bold text-slate-800">${sgpa}</h2>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div class="p-4 rounded-xl ${attendance >= 75 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}">
+                                <i class="ph ph-calendar-check text-3xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-slate-500">Overall Attendance</p>
+                                <h2 class="text-3xl font-bold text-slate-800">${attendance}%</h2>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div class="p-4 bg-amber-50 text-amber-600 rounded-xl"><i class="ph ph-clock-counter-clockwise text-3xl"></i></div>
+                            <div>
+                                <p class="text-sm font-medium text-slate-500">Pending Assignments</p>
+                                <h2 class="text-3xl font-bold text-slate-800">${pendingTasks}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Widgets -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i class="ph-fill ph-calendar text-indigo-500 text-xl"></i> Quick Attendance
+                            </h3>
+                            <div class="space-y-4">${quickAttendanceHTML}</div>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i class="ph-fill ph-book-open text-indigo-500 text-xl"></i> Upcoming Tasks
+                            </h3>
+                            <div class="space-y-3">${upcomingTasksHTML}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAttendanceView() {
+            let coursesHTML = appData.courses.map(course => {
+                const percentage = course.classesTotal === 0 ? 0 : Math.round((course.classesAttended / course.classesTotal) * 100);
+                const isDanger = percentage < 75;
+                const warningHTML = isDanger ? `<p class="text-xs text-red-500 mt-1 flex items-center gap-1 font-medium"><i class="ph-fill ph-warning-circle"></i> Minimum 75% required.</p>` : '';
+                
+                return `
+                    <div class="p-5 border border-slate-200 rounded-xl hover:shadow-md transition-shadow">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded font-mono font-bold">${course.code}</span>
+                                    <h3 class="font-bold text-lg text-slate-800">${course.name}</h3>
+                                </div>
+                                ${warningHTML}
+                            </div>
+                            <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 w-fit">
+                                <button onclick="window.markAttendance('${course.id}', true)" class="flex items-center gap-1 px-3 py-1.5 bg-white text-green-600 hover:bg-green-50 shadow-sm border border-slate-200 rounded-md text-sm font-medium transition-colors">
+                                    <i class="ph ph-check text-lg"></i> Present
+                                </button>
+                                <button onclick="window.markAttendance('${course.id}', false)" class="flex items-center gap-1 px-3 py-1.5 bg-white text-red-600 hover:bg-red-50 shadow-sm border border-slate-200 rounded-md text-sm font-medium transition-colors">
+                                    <i class="ph ph-x text-lg"></i> Absent
+                                </button>
+                            </div>
+                        </div>
+                        ${renderAttendanceBarHTML(course.classesAttended, course.classesTotal)}
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden fade-in">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50">
+                        <h2 class="text-xl font-bold text-slate-800">Attendance Tracker</h2>
+                        <p class="text-sm text-slate-500">Manage your course attendance to stay above the 75% requirement.</p>
+                    </div>
+                    <div class="p-6 space-y-6">${coursesHTML}</div>
+                </div>
+            `;
+        }
+
+        function renderTasksView() {
+            let tasksArray = [...appData.assignments].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            let tasksHTML = tasksArray.map(task => {
+                const daysLeft = Math.ceil((new Date(task.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+                const isOverdue = daysLeft < 0 && task.status !== 'completed';
+                
+                let bgClass = 'bg-white border-slate-200';
+                if (task.status === 'completed') bgClass = 'bg-slate-50 border-slate-200 opacity-75';
+                else if (isOverdue) bgClass = 'bg-red-50 border-red-200';
+
+                const btnClass = task.status === 'completed' ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 hover:border-indigo-400 bg-white';
+                const tagClass = task.type === 'quiz' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                const titleClass = task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-800';
+                
+                let statusText = `${daysLeft} Days Left`;
+                if(task.status === 'completed') statusText = 'Done';
+                else if(isOverdue) statusText = 'Overdue';
+                else if(daysLeft === 0) statusText = 'Due Today';
+
+                let statusColor = 'text-slate-600';
+                if(task.status === 'completed') statusColor = 'text-green-600';
+                else if(daysLeft <= 2) statusColor = 'text-red-600';
+
+                return `
+                    <div class="flex items-start gap-4 p-4 rounded-xl border ${bgClass} transition-all hover:shadow-md">
+                        <button onclick="window.toggleTask('${task.id}')" class="mt-1 flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${btnClass}">
+                            ${task.status === 'completed' ? '<i class="ph ph-check"></i>' : ''}
+                        </button>
+                        <div class="flex-1">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                                <div>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wider ${tagClass}">${task.type || 'task'}</span>
+                                        <span class="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-mono font-bold">${task.courseCode}</span>
+                                    </div>
+                                    <h3 class="font-bold text-lg ${titleClass}">${task.title}</h3>
+                                </div>
+                                <div class="text-left sm:text-right">
+                                    <p class="text-sm font-semibold flex items-center sm:justify-end gap-1 ${statusColor}">
+                                        <i class="ph ph-clock"></i> ${statusText}
+                                    </p>
+                                    <p class="text-xs text-slate-500 mt-1">Due: ${new Date(task.dueDate).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden fade-in">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50">
+                        <h2 class="text-xl font-bold text-slate-800">Assignments & Quizzes</h2>
+                        <p class="text-sm text-slate-500">Track your university deadlines and pending work.</p>
+                    </div>
+                    <div class="p-6 space-y-4">${tasksHTML}</div>
+                </div>
+            `;
+        }
+
+        function renderMaterialsView() {
+            // Group materials by course
+            const grouped = {};
+            appData.materials.forEach(m => {
+                if(!grouped[m.courseCode]) grouped[m.courseCode] = [];
+                grouped[m.courseCode].push(m);
+            });
+
+            let sectionsHTML = appData.courses.map(course => {
+                const materials = grouped[course.code] || [];
+                if (materials.length === 0) return '';
+
+                let cardsHTML = materials.map(mat => {
+                    let icon = '<i class="ph ph-link text-xl"></i>';
+                    let iconBg = 'bg-green-100 text-green-600';
+                    if (mat.type === 'pdf') {
+                        icon = '<i class="ph ph-file-pdf text-xl"></i>';
+                        iconBg = 'bg-red-100 text-red-600';
+                    } else if (mat.type === 'video') {
+                        icon = '<i class="ph ph-video text-xl"></i>';
+                        iconBg = 'bg-blue-100 text-blue-600';
+                    }
+
+                    return `
+                        <a href="#" onclick="event.preventDefault()" class="flex items-start gap-3 p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all group bg-slate-50">
+                            <div class="p-2 rounded-lg ${iconBg}">${icon}</div>
+                            <div>
+                                <p class="font-semibold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors line-clamp-2">${mat.title}</p>
+                                <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">${mat.type} • Uploaded ${mat.uploadDate}</p>
+                            </div>
+                        </a>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+                            <span class="text-sm px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-mono">${course.code}</span>
+                            ${course.name}
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cardsHTML}</div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden fade-in">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50">
+                        <h2 class="text-xl font-bold text-slate-800">Study Material Vault</h2>
+                        <p class="text-sm text-slate-500">Access university-provided lecture notes, videos, and reference links.</p>
+                    </div>
+                    <div class="p-6 space-y-8">${sectionsHTML}</div>
+                </div>
+            `;
+        }
+
+        function renderCGPAView() {
+            const sgpa = calculateSGPA();
+            
+            let tableRowsHTML = appData.courses.map(course => {
+                let optionsHTML = Object.keys(gradePoints).map(grade => {
+                    const selected = course.grade === grade ? 'selected' : '';
+                    return `<option value="${grade}" ${selected}>${grade}</option>`;
+                }).join('');
+
+                const points = gradePoints[course.grade] * course.credits;
+
+                return `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td class="p-4 font-mono text-sm text-slate-600">${course.code}</td>
+                        <td class="p-4 font-medium text-slate-800">${course.name}</td>
+                        <td class="p-4 text-center text-slate-600">${course.credits}</td>
+                        <td class="p-4">
+                            <select onchange="window.changeGrade('${course.id}', this.value)" class="bg-white border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2 outline-none font-medium">
+                                ${optionsHTML}
+                            </select>
+                        </td>
+                        <td class="p-4 text-center font-bold text-slate-800">${points}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            return `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden fade-in">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Grade Calculator</h2>
+                            <p class="text-sm text-slate-500">Predict your Semester GPA by selecting expected grades.</p>
+                        </div>
+                        <div class="text-left sm:text-right">
+                            <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Estimated SGPA</p>
+                            <p class="text-4xl font-black text-indigo-600">${sgpa}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse min-w-[600px]">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
+                                    <th class="p-4 font-medium">Course Code</th>
+                                    <th class="p-4 font-medium">Course Name</th>
+                                    <th class="p-4 font-medium text-center">Credits</th>
+                                    <th class="p-4 font-medium">Expected Grade</th>
+                                    <th class="p-4 font-medium text-center">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tableRowsHTML}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Master Render Function
+        function renderApp() {
+            const container = document.getElementById('tab-content');
+            
+            if (activeTab === 'dashboard') container.innerHTML = renderDashboard();
+            else if (activeTab === 'attendance') container.innerHTML = renderAttendanceView();
+            else if (activeTab === 'tasks') container.innerHTML = renderTasksView();
+            else if (activeTab === 'materials') container.innerHTML = renderMaterialsView();
+            else if (activeTab === 'cgpa') container.innerHTML = renderCGPAView();
+        }
+
+        // --- 4. START APP ---
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>
