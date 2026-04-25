@@ -95,91 +95,62 @@
         // --- 1. DATA AND STATE ---
         const gradePoints = { 'O': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C': 5, 'U': 0 };
         let activeTab = 'dashboard';
-        let appData = { courses: [], assignments: [], materials: [] };
+        
+        const defaultData = {
+            courses: [
+                { id: '1', code: 'CS201', name: 'Data Structures & Algorithms', credits: 4, classesTotal: 40, classesAttended: 32, grade: 'A' },
+                { id: '2', code: 'CS203', name: 'Computer Organization', credits: 3, classesTotal: 35, classesAttended: 24, grade: 'B+' },
+                { id: '3', code: 'MA201', name: 'Discrete Mathematics', credits: 4, classesTotal: 30, classesAttended: 28, grade: 'O' },
+                { id: '4', code: 'HS201', name: 'Technical Communication', credits: 2, classesTotal: 20, classesAttended: 12, grade: 'B' },
+            ],
+            assignments: [
+                { id: '1', courseCode: 'CS201', title: 'Implement AVL Tree', type: 'assignment', dueDate: new Date(Date.now() + 86400000 * 2).toISOString(), status: 'pending' },
+                { id: '2', courseCode: 'CS203', title: 'MIPS Assembly Lab', type: 'assignment', dueDate: new Date(Date.now() + 86400000 * 5).toISOString(), status: 'pending' },
+                { id: '3', courseCode: 'MA201', title: 'Graph Theory Quiz', type: 'quiz', dueDate: new Date(Date.now() + 86400000 * 1).toISOString(), status: 'pending' },
+            ],
+            materials: [
+                { id: 'm1', courseCode: 'CS201', title: 'Unit 1: Trees and Graphs Notes', type: 'pdf', uploadDate: 'Oct 15' },
+                { id: 'm2', courseCode: 'CS201', title: 'AVL Tree Visualization', type: 'video', uploadDate: 'Oct 18' },
+                { id: 'm3', courseCode: 'CS203', title: 'MIPS Instruction Set Manual', type: 'pdf', uploadDate: 'Oct 10' },
+                { id: 'm4', courseCode: 'MA201', title: 'Discrete Math Question Bank', type: 'pdf', uploadDate: 'Oct 20' },
+                { id: 'm5', courseCode: 'HS201', title: 'Business Email Templates', type: 'link', uploadDate: 'Oct 22' }
+            ]
+        };
 
-        const API_URL = 'https://campusflow-backend-7t1j.onrender.com/';
+        let appData = {};
 
-        // Load Data from REAL Backend
-        async function initApp() {
-            try {
-                const response = await fetch(`${API_URL}/dashboard`);
-                appData = await response.json();
-                renderApp();
-            } catch (error) {
-                console.error("Failed to connect to backend:", error);
-                alert("Make sure your Node.js backend is running on port 5000!");
+        // Load Data from LocalStorage
+        function initApp() {
+            const stored = localStorage.getItem('campusFlowDB');
+            if (stored) {
+                // Merge with default to ensure no missing fields
+                appData = { ...defaultData, ...JSON.parse(stored) };
+            } else {
+                appData = JSON.parse(JSON.stringify(defaultData));
             }
+            renderApp();
         }
 
-        // Show Syncing UI Indicator
-        function showSyncIndicator() {
+        // Save Data to LocalStorage
+        function saveData() {
+            localStorage.setItem('campusFlowDB', JSON.stringify(appData));
+            
+            // Visual Sync Indicator
             const icon = document.getElementById('sync-icon');
             const text = document.getElementById('sync-text');
             if(icon && text) {
                 icon.className = "ph-fill ph-spinner-gap animate-spin text-xl text-amber-400";
-                text.innerText = "Syncing with Server...";
+                text.innerText = "Syncing...";
+                
                 setTimeout(() => {
                     icon.className = "ph-fill ph-check-circle text-xl text-green-400";
-                    text.innerText = "Live Database Synced";
-                }, 800);
+                    text.innerText = "All changes saved";
+                }, 500);
             }
+            renderApp(); // Re-render UI after data changes
         }
 
-        // --- 2. LOGIC FUNCTIONS (Talking to Backend) ---
-        
-        // Exposed to Window for onclick events in HTML
-        window.switchTab = (tab) => {
-            activeTab = tab;
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.className = btn.dataset.tab === tab 
-                    ? "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all bg-indigo-600 text-white shadow-md"
-                    : "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-800 hover:text-white";
-            });
-            document.getElementById('header-title').innerText = tab.replace('-', ' ');
-            renderApp();
-        };
-
-        window.markAttendance = async (courseId, present) => {
-            showSyncIndicator();
-            // 1. Optimistic UI Update (Update screen instantly)
-            const course = appData.courses.find(c => c._id === courseId);
-            if (course) {
-                course.classesTotal += 1;
-                if (present) course.classesAttended += 1;
-                renderApp();
-            }
-            // 2. Tell the backend to save it
-            await fetch(`${API_URL}/courses/${courseId}/attendance`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ present })
-            });
-        };
-
-        window.toggleTask = async (taskId) => {
-            showSyncIndicator();
-            const task = appData.assignments.find(a => a._id === taskId);
-            if (task) {
-                task.status = task.status === 'pending' ? 'completed' : 'pending';
-                renderApp();
-            }
-            await fetch(`${API_URL}/assignments/${taskId}/toggle`, { method: 'PUT' });
-        };
-
-        window.changeGrade = async (courseId, newGrade) => {
-            showSyncIndicator();
-            const course = appData.courses.find(c => c._id === courseId);
-            if (course) {
-                course.grade = newGrade;
-                renderApp();
-            }
-            await fetch(`${API_URL}/courses/${courseId}/grade`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ grade: newGrade })
-            });
-        };
-
+        // --- 2. LOGIC FUNCTIONS ---
         function calculateOverallAttendance() {
             if (appData.courses.length === 0) return 0;
             const total = appData.courses.reduce((sum, c) => sum + c.classesTotal, 0);
@@ -198,6 +169,47 @@
             });
             return totalCredits === 0 ? 0 : (earnedPoints / totalCredits).toFixed(2);
         }
+
+        // Exposed to Window for onclick events in HTML
+        window.switchTab = (tab) => {
+            activeTab = tab;
+            // Update Sidebar UI
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if(btn.dataset.tab === tab) {
+                    btn.className = "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all bg-indigo-600 text-white shadow-md";
+                } else {
+                    btn.className = "nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-800 hover:text-white";
+                }
+            });
+            document.getElementById('header-title').innerText = tab.replace('-', ' ');
+            renderApp();
+        };
+
+        window.markAttendance = (courseId, present) => {
+            const course = appData.courses.find(c => c.id === courseId);
+            if (course) {
+                course.classesTotal += 1;
+                if (present) course.classesAttended += 1;
+                saveData();
+            }
+        };
+
+        window.toggleTask = (taskId) => {
+            const task = appData.assignments.find(a => a.id === taskId);
+            if (task) {
+                task.status = task.status === 'pending' ? 'completed' : 'pending';
+                saveData();
+            }
+        };
+
+        window.changeGrade = (courseId, newGrade) => {
+            const course = appData.courses.find(c => c.id === courseId);
+            if (course) {
+                course.grade = newGrade;
+                saveData();
+            }
+        };
+
         // --- 3. RENDER FUNCTIONS (HTML Templates) ---
         
         function renderAttendanceBarHTML(attended, total) {
@@ -234,10 +246,10 @@
                             <p class="text-xs font-medium ${percClass}">${perc}% (${course.classesAttended}/${course.classesTotal})</p>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="window.markAttendance('${course._id}', true)" class="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors" title="Mark Present">
+                            <button onclick="window.markAttendance('${course.id}', true)" class="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors" title="Mark Present">
                                 <i class="ph ph-check text-lg"></i>
                             </button>
-                            <button onclick="window.markAttendance('${course._id}', false)" class="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Mark Absent">
+                            <button onclick="window.markAttendance('${course.id}', false)" class="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Mark Absent">
                                 <i class="ph ph-x text-lg"></i>
                             </button>
                         </div>
@@ -256,7 +268,7 @@
 
                 upcomingTasksHTML += `
                     <div class="flex items-start gap-3 p-3 rounded-xl border ${bgClass} transition-all">
-                        <button onclick="window.toggleTask('${task._id}')" class="mt-1 flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center ${checkClass}">
+                        <button onclick="window.toggleTask('${task.id}')" class="mt-1 flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center ${checkClass}">
                             ${task.status === 'completed' ? '<i class="ph ph-check text-xs"></i>' : ''}
                         </button>
                         <div>
@@ -336,10 +348,10 @@
                                 ${warningHTML}
                             </div>
                             <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 w-fit">
-                                <button onclick="window.markAttendance('${course._id}', true)" class="flex items-center gap-1 px-3 py-1.5 bg-white text-green-600 hover:bg-green-50 shadow-sm border border-slate-200 rounded-md text-sm font-medium transition-colors">
+                                <button onclick="window.markAttendance('${course.id}', true)" class="flex items-center gap-1 px-3 py-1.5 bg-white text-green-600 hover:bg-green-50 shadow-sm border border-slate-200 rounded-md text-sm font-medium transition-colors">
                                     <i class="ph ph-check text-lg"></i> Present
                                 </button>
-                                <button onclick="window.markAttendance('${course._id}', false)" class="flex items-center gap-1 px-3 py-1.5 bg-white text-red-600 hover:bg-red-50 shadow-sm border border-slate-200 rounded-md text-sm font-medium transition-colors">
+                                <button onclick="window.markAttendance('${course.id}', false)" class="flex items-center gap-1 px-3 py-1.5 bg-white text-red-600 hover:bg-red-50 shadow-sm border border-slate-200 rounded-md text-sm font-medium transition-colors">
                                     <i class="ph ph-x text-lg"></i> Absent
                                 </button>
                             </div>
@@ -385,7 +397,7 @@
 
                 return `
                     <div class="flex items-start gap-4 p-4 rounded-xl border ${bgClass} transition-all hover:shadow-md">
-                        <button onclick="window.toggleTask('${task._id}')" class="mt-1 flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${btnClass}">
+                        <button onclick="window.toggleTask('${task.id}')" class="mt-1 flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${btnClass}">
                             ${task.status === 'completed' ? '<i class="ph ph-check"></i>' : ''}
                         </button>
                         <div class="flex-1">
@@ -493,7 +505,7 @@
                         <td class="p-4 font-medium text-slate-800">${course.name}</td>
                         <td class="p-4 text-center text-slate-600">${course.credits}</td>
                         <td class="p-4">
-                            <select onchange="window.changeGrade('${course._id}', this.value)" class="bg-white border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2 outline-none font-medium">
+                            <select onchange="window.changeGrade('${course.id}', this.value)" class="bg-white border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2 outline-none font-medium">
                                 ${optionsHTML}
                             </select>
                         </td>
